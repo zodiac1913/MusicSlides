@@ -1,0 +1,62 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "gradle: run",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": ["run"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Run the LyricSlides desktop app via Gradle"
+        },
+        {
+            "label": "gradle: build",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": ["build"],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Build the project (compile + test)"
+        },
+        {
+            "label": "gradle: clean",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": ["clean"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Delete build outputs"
+        },
+        {
+            "label": "gradle: package distributable",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": ["createDistributable"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Produce a native distributable (build/compose/binaries)"
+        }
+    ]
+}

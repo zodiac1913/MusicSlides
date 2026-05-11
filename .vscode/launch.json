@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run LyricSlides",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "./gradlew run",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Attach to Kotlin JVM (port 5005)",
+            "type": "java",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005,
+            "projectName": "LyricSlides"
+        }
+    ],
+    "compounds": []
+}
