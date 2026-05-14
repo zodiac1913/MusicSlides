@@ -18,6 +18,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Build Linux .deb
         run: ./gradlew packageDeb
 
@@ -38,14 +41,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build Windows .msi
-        run: ./gradlew packageMsi
+      - name: Build Windows distributable
+        run: .\gradlew.bat createDistributable
+
+      - name: Zip Windows app
+        shell: powershell
+        run: Compress-Archive -Path "build\compose\binaries\main\app\*" -DestinationPath "LyricSlides-windows.zip"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-msi
-          path: build/compose/binaries/main/msi/*.msi
+          name: windows-zip
+          path: LyricSlides-windows.zip
 
   build-macos:
     runs-on: macos-latest
@@ -57,6 +64,9 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
       - name: Build macOS distributable
         run: ./gradlew createDistributable
@@ -88,6 +98,5 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            artifacts/linux-deb/*.deb
-            artifacts/windows-msi/*.msi
-            artifacts/macos-zip/*.zip
+            artifacts/**/*.deb
+            artifacts/**/*.zip

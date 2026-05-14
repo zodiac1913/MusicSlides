@@ -11,6 +11,7 @@ import com.lyricslides.service.CcliEntry
 import com.lyricslides.service.CcliLookupService
 import com.lyricslides.service.CcliSearchResult
 import com.lyricslides.service.LyricsService
+import com.lyricslides.service.OtpImporter
 import com.lyricslides.service.PptxExporter
 import com.lyricslides.service.SlideGenerator
 import com.lyricslides.service.SongSuggestion
@@ -430,6 +431,31 @@ class AppViewModel {
         backgroundStore.saveCustomBackgrounds(
             _availableBackgrounds.value.filter { !it.isBuiltIn }
         )
+    }
+
+    /**
+     * Import a background from a LibreOffice Impress template (.otp) file.
+     * Extracts the background image and adds it to the custom backgrounds.
+     */
+    fun importFromOtp(otpFilePath: String) {
+        val otpImporter = OtpImporter()
+        val extractedPath = otpImporter.extractBackground(otpFilePath)
+        if (extractedPath != null) {
+            val file = File(extractedPath)
+            val templateName = File(otpFilePath).nameWithoutExtension
+            val bg = SlideBackground(
+                name = templateName,
+                path = extractedPath,
+                isBuiltIn = false,
+                category = "LibreOffice"
+            )
+            _availableBackgrounds.value = _availableBackgrounds.value + bg
+            selectBackground(bg)
+            // Persist
+            backgroundStore.saveCustomBackgrounds(
+                _availableBackgrounds.value.filter { !it.isBuiltIn }
+            )
+        }
     }
 
     /**

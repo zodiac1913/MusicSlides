@@ -108,7 +108,29 @@ fun BackgroundScreen(viewModel: AppViewModel) {
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Import custom background button
+            // Import from LibreOffice template (.otp)
+            OutlinedButton(
+                onClick = {
+                    val chooser = JFileChooser()
+                    chooser.fileFilter = FileNameExtensionFilter(
+                        "LibreOffice Impress Template", "otp"
+                    )
+                    chooser.dialogTitle = "Import from LibreOffice Template (.otp)"
+                    chooser.isMultiSelectionEnabled = true
+                    val result = chooser.showOpenDialog(null)
+                    if (result == JFileChooser.APPROVE_OPTION) {
+                        chooser.selectedFiles.forEach { file ->
+                            viewModel.importFromOtp(file.absolutePath)
+                        }
+                    }
+                }
+            ) {
+                Icon(Icons.Default.FolderOpen, contentDescription = null)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Import .otp")
+            }
+
+            // Import custom background image
             Button(
                 onClick = {
                     val chooser = JFileChooser()
@@ -116,9 +138,12 @@ fun BackgroundScreen(viewModel: AppViewModel) {
                         "Images", "png", "jpg", "jpeg", "bmp", "gif"
                     )
                     chooser.dialogTitle = "Select Background Image"
+                    chooser.isMultiSelectionEnabled = true
                     val result = chooser.showOpenDialog(null)
                     if (result == JFileChooser.APPROVE_OPTION) {
-                        viewModel.addCustomBackground(chooser.selectedFile.absolutePath)
+                        chooser.selectedFiles.forEach { file ->
+                            viewModel.addCustomBackground(file.absolutePath)
+                        }
                     }
                 }
             ) {
