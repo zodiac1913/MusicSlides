@@ -298,13 +298,25 @@ class SlideGenerator {
         // Draw background
         drawBackground(g2d, backgroundImage)
 
-        // Determine accessible text color
-        val bgColor = if (backgroundImage != null) {
-            sampleBackgroundColor(image)
+        // Check if background is too "busy" (high variance) — if so, add a scrim
+        val bgColor: Color
+        val needsScrim: Boolean
+        if (backgroundImage != null) {
+            bgColor = sampleBackgroundColor(image)
+            needsScrim = backgroundHasHighVariance(image)
         } else {
-            Color(30, 30, 65)
+            bgColor = Color(30, 30, 65)
+            needsScrim = false
         }
-        val textColor = chooseAccessibleTextColor(bgColor)
+
+        // Draw semi-transparent scrim if the background is too varied for clean text
+        if (needsScrim) {
+            drawTextScrim(g2d)
+        }
+
+        val textColor = chooseAccessibleTextColor(
+            if (needsScrim) Color(0, 0, 0, 180) else bgColor
+        )
 
         // Calculate optimal font size
         val fontSize = calculateOptimalFontSize(lines, g2d)
@@ -470,6 +482,54 @@ class SlideGenerator {
             g2d.paint = gradient
             g2d.fillRect(0, 0, SLIDE_WIDTH, SLIDE_HEIGHT)
         }
+    }
+
+    /**
+     * Check if the background image has high luminance variance in the text area.
+     * High variance means both very bright and very dark regions exist,
+     * making it impossible for a single text color to be readable everywhere.
+     */
+    private fun backgroundHasHighVariance(image: BufferedImage): Boolean {
+        val startX = PADDING
+        val startY = PADDING
+        val endX = SLIDE_WIDTH - PADDING
+        val endY = SLIDE_HEIGHT - PADDING
+
+        var minLum = 1.0
+        var maxLum = 0.0
+
+        // Sample every 20th pixel for performance
+        var y = startY
+        while (y < endY && y < image.height) {
+            var x = startX
+            while (x < endX && x < image.width) {
+                val pixel = Color(image.getRGB(x, y))
+                val lum = relativeLuminance(pixel)
+                if (lum < minLum) minLum = lum
+                if (lum > maxLum) maxLum = lum
+                x += 20
+            }
+            y += 20
+        }
+
+        // If the range between darkest and brightest is large, it's "busy"
+        // A range > 0.4 means there's both very dark and very bright areas
+        return (maxLum - minLum) > 0.4
+    }
+
+    /**
+     * Draw a semi-transparent dark scrim over the text area to ensure readability.
+     * The scrim is a rounded rectangle with soft edges covering the center of the slide.
+     */
+    private fun drawTextScrim(g2d: Graphics2D) {
+        val scrimPadding = PADDING / 2
+        val scrimX = scrimPadding
+        val scrimY = scrimPadding
+        val scrimW = SLIDE_WIDTH - (scrimPadding * 2)
+        val scrimH = SLIDE_HEIGHT - (scrimPadding * 2)
+
+        g2d.color = Color(0, 0, 0, 160) // ~63% opacity black
+        g2d.fillRoundRect(scrimX, scrimY, scrimW, scrimH, 40, 40)
     }
 
     /**
