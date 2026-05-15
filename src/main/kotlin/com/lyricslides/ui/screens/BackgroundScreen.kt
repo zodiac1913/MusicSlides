@@ -40,6 +40,7 @@ fun BackgroundScreen(viewModel: AppViewModel) {
         backgrounds.map { it.category }.distinct()
     }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var showOnlineBrowser by remember { mutableStateOf(false) }
 
     val filteredBackgrounds = remember(backgrounds, selectedCategory) {
         if (selectedCategory == null) backgrounds
@@ -108,26 +109,13 @@ fun BackgroundScreen(viewModel: AppViewModel) {
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Import from LibreOffice template (.otp)
+            // Browse LibreOffice templates online
             OutlinedButton(
-                onClick = {
-                    val chooser = JFileChooser()
-                    chooser.fileFilter = FileNameExtensionFilter(
-                        "LibreOffice Impress Template", "otp"
-                    )
-                    chooser.dialogTitle = "Import from LibreOffice Template (.otp)"
-                    chooser.isMultiSelectionEnabled = true
-                    val result = chooser.showOpenDialog(null)
-                    if (result == JFileChooser.APPROVE_OPTION) {
-                        chooser.selectedFiles.forEach { file ->
-                            viewModel.importFromOtp(file.absolutePath)
-                        }
-                    }
-                }
+                onClick = { showOnlineBrowser = true }
             ) {
-                Icon(Icons.Default.FolderOpen, contentDescription = null)
+                Icon(Icons.Default.CloudDownload, contentDescription = null)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Import .otp")
+                Text("Browse Online")
             }
 
             // Import custom background image
@@ -135,21 +123,25 @@ fun BackgroundScreen(viewModel: AppViewModel) {
                 onClick = {
                     val chooser = JFileChooser()
                     chooser.fileFilter = FileNameExtensionFilter(
-                        "Images", "png", "jpg", "jpeg", "bmp", "gif"
+                        "Images & Templates", "png", "jpg", "jpeg", "bmp", "gif", "otp"
                     )
-                    chooser.dialogTitle = "Select Background Image"
+                    chooser.dialogTitle = "Select Background Image or .otp Template"
                     chooser.isMultiSelectionEnabled = true
                     val result = chooser.showOpenDialog(null)
                     if (result == JFileChooser.APPROVE_OPTION) {
                         chooser.selectedFiles.forEach { file ->
-                            viewModel.addCustomBackground(file.absolutePath)
+                            if (file.name.endsWith(".otp", ignoreCase = true)) {
+                                viewModel.importFromOtp(file.absolutePath)
+                            } else {
+                                viewModel.addCustomBackground(file.absolutePath)
+                            }
                         }
                     }
                 }
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Import Image")
+                Text("Import File")
             }
         }
 
@@ -206,6 +198,14 @@ fun BackgroundScreen(viewModel: AppViewModel) {
                 )
             }
         }
+    }
+
+    // Online template browser dialog
+    if (showOnlineBrowser) {
+        OnlineTemplateBrowser(
+            viewModel = viewModel,
+            onDismiss = { showOnlineBrowser = false }
+        )
     }
 }
 

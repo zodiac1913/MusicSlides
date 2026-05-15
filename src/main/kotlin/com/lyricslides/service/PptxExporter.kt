@@ -4,7 +4,6 @@ import org.apache.poi.xslf.usermodel.XMLSlideShow
 import org.apache.poi.xslf.usermodel.XSLFSlide
 import java.awt.Dimension
 import java.awt.image.BufferedImage
-import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.imageio.ImageIO
@@ -34,9 +33,9 @@ class PptxExporter {
             ImageIO.write(slideImage, "PNG", baos)
             val imageBytes = baos.toByteArray()
 
-            // Add image as picture data
+            // Add image as picture data (byte array version — works reliably in POI 5.x)
             val pictureData = pptx.addPicture(
-                ByteArrayInputStream(imageBytes),
+                imageBytes,
                 org.apache.poi.sl.usermodel.PictureData.PictureType.PNG
             )
 
@@ -48,6 +47,9 @@ class PptxExporter {
                 SlideGenerator.SLIDE_HEIGHT
             )
         }
+
+        // Ensure parent directory exists
+        outputFile.parentFile?.mkdirs()
 
         // Write to file
         outputFile.outputStream().use { fos ->

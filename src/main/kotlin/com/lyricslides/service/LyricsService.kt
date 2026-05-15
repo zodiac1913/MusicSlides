@@ -411,46 +411,96 @@ class LyricsService {
     private fun extractLyricsFromGeniusHtml(html: String): String {
         val lyrics = StringBuilder()
 
-        // Pattern 1: data-lyrics-container="true" divs
-        val containerPattern = Regex(
-            """data-lyrics-container="true"[^>]*>(.*?)</div>""",
-            setOf(RegexOption.DOT_MATCHES_ALL)
-        )
+        // Find all data-lyrics-container="true" sections.
+        // We can't use a simple regex because these divs contain nested divs.
+        // Instead, find each container start and manually extract to its balanced closing </div>.
+        val marker = """data-lyrics-container="true""""
+        var searchFrom = 0
 
-        val matches = containerPattern.findAll(html)
-        for (match in matches) {
-            var content = match.groupValues[1]
+        while (true) {
+            val markerIdx = html.indexOf(marker, searchFrom)
+            if (markerIdx < 0) break
 
-            // Replace <br/> and <br> with newlines
-            content = content.replace(Regex("""<br\s*/?>"""), "\n")
+            // Find the > that closes this opening tag
+            val tagClose = html.indexOf('>', markerIdx)
+            if (tagClose < 0) break
 
-            // Remove all other HTML tags
-            content = content.replace(Regex("""<[^>]+>"""), "")
+            val contentStart = tagClose + 1
 
-            // Decode HTML entities
-            content = content
-                .replace("&amp;", "&")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-                .replace("&quot;", "\"")
-                .replace("&#x27;", "'")
-                .replace("&#39;", "'")
-                .replace("&apos;", "'")
+            // Walk forward, counting nested <div and </div> to find the matching close
+            var depth = 1
+            var pos = contentStart
+            while (pos < html.length && depth > 0) {
+                val nextOpen = html.indexOf("<div", pos)
+                val nextClose = html.indexOf("</div>", pos)
 
-            lyrics.append(content.trim())
-            lyrics.append("\n\n")
+                if (nextClose < 0) break // malformed HTML, bail
+
+                if (nextOpen in pos until nextClose) {
+                    // Found a nested opening div before the next close
+                    depth++
+                    pos = nextOpen + 4
+                } else {
+                    // Found a closing div
+                    depth--
+                    if (depth == 0) {
+                        // This is our container's closing tag
+                        val content = html.substring(contentStart, nextClose)
+                        val cleaned = cleanLyricsHtml(content)
+                        if (cleaned.isNotBlank()) {
+                            lyrics.append(cleaned)
+                            lyrics.append("\n\n")
+                        }
+                    }
+                    pos = nextClose + 6
+                }
+            }
+
+            searchFrom = markerIdx + marker.length
         }
 
-        // Clean up: remove [Verse], [Chorus] etc. section headers (optional — keep them as breaks)
+        // Clean up section markers and extra whitespace
         var result = lyrics.toString().trim()
 
-        // Convert section markers like [Verse 1] into blank line separators
+        // Remove bracketed section markers like [Verse 1], [Chorus], [Bridge]
         result = result.replace(Regex("""\[([^\]]+)\]\s*"""), "\n\n")
+
+        // Remove standalone section labels like "Refrain:", "Chorus:", "Bridge:", "Verse 2:", etc.
+        result = result.replace(
+            Regex("""(?m)^\s*(Verse|Chorus|Refrain|Bridge|Intro|Outro|Pre-Chorus|Pre-chorus|Interlude|Hook|Tag|Coda|Instrumental)\s*\d*\s*:?\s*$""", RegexOption.IGNORE_CASE),
+            "\n"
+        )
 
         // Collapse multiple blank lines into double newline (verse separator)
         result = result.replace(Regex("""\n{3,}"""), "\n\n")
 
         return result.trim()
+    }
+
+    /**
+     * Clean raw HTML content from a lyrics container into plain text.
+     */
+    private fun cleanLyricsHtml(html: String): String {
+        var content = html
+
+        // Replace <br/> and <br> with newlines
+        content = content.replace(Regex("""<br\s*/?>"""), "\n")
+
+        // Remove all other HTML tags
+        content = content.replace(Regex("""<[^>]+>"""), "")
+
+        // Decode HTML entities
+        content = content
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#x27;", "'")
+            .replace("&#39;", "'")
+            .replace("&apos;", "'")
+            .replace("&nbsp;", " ")
+
+        return content.trim()
     }
 
     // ─────────────────────────────────────────────────────────────────────────

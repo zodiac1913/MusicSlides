@@ -87,11 +87,16 @@ fun PreviewScreen(viewModel: AppViewModel) {
                         val chooser = JFileChooser()
                         chooser.fileFilter = FileNameExtensionFilter("PowerPoint", "pptx")
                         chooser.dialogTitle = "Save as PowerPoint"
-                        chooser.selectedFile = java.io.File("$defaultFilenameBase.pptx")
+                        chooser.currentDirectory = java.io.File(System.getProperty("user.home"))
+                        chooser.selectedFile = java.io.File(
+                            System.getProperty("user.home"),
+                            "$defaultFilenameBase.pptx"
+                        )
                         val result = chooser.showSaveDialog(null)
                         if (result == JFileChooser.APPROVE_OPTION) {
                             var path = chooser.selectedFile.absolutePath
                             if (!path.endsWith(".pptx")) path += ".pptx"
+                            println("Exporting PPTX to: $path")
                             viewModel.exportToPptx(path)
                         }
                     }
@@ -99,6 +104,30 @@ fun PreviewScreen(viewModel: AppViewModel) {
                     Icon(Icons.Default.SaveAlt, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Export PPTX")
+                }
+
+                // Export as ODP (LibreOffice/OpenOffice)
+                OutlinedButton(
+                    onClick = {
+                        val chooser = JFileChooser()
+                        chooser.fileFilter = FileNameExtensionFilter("LibreOffice Impress", "odp")
+                        chooser.dialogTitle = "Save as ODP (LibreOffice)"
+                        chooser.currentDirectory = java.io.File(System.getProperty("user.home"))
+                        chooser.selectedFile = java.io.File(
+                            System.getProperty("user.home"),
+                            "$defaultFilenameBase.odp"
+                        )
+                        val result = chooser.showSaveDialog(null)
+                        if (result == JFileChooser.APPROVE_OPTION) {
+                            var path = chooser.selectedFile.absolutePath
+                            if (!path.endsWith(".odp")) path += ".odp"
+                            viewModel.exportToOdp(path)
+                        }
+                    }
+                ) {
+                    Icon(Icons.Default.SaveAlt, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Export ODP")
                 }
 
                 // Export as images
@@ -198,26 +227,47 @@ fun PreviewScreen(viewModel: AppViewModel) {
         // Thumbnail strip
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.height(80.dp).fillMaxWidth()
+            modifier = Modifier.height(90.dp).fillMaxWidth()
         ) {
             itemsIndexed(generatedSlides) { index, slide ->
-                Card(
-                    modifier = Modifier
-                        .width(142.dp)
-                        .fillMaxHeight(),
-                    onClick = { currentSlideIndex = index },
-                    border = if (index == currentSlideIndex)
-                        CardDefaults.outlinedCardBorder().copy(
-                            width = 2.dp
-                        ) else null
-                ) {
-                    val bitmap = remember(slide) { slide.toComposeImageBitmap() }
-                    Image(
-                        bitmap = bitmap,
-                        contentDescription = "Slide ${index + 1} thumbnail",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
+                Box {
+                    Card(
+                        modifier = Modifier
+                            .width(142.dp)
+                            .fillMaxHeight(),
+                        onClick = { currentSlideIndex = index },
+                        border = if (index == currentSlideIndex)
+                            CardDefaults.outlinedCardBorder().copy(
+                                width = 2.dp
+                            ) else null
+                    ) {
+                        val bitmap = remember(slide) { slide.toComposeImageBitmap() }
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = "Slide ${index + 1} thumbnail",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                    // Delete X button on each thumbnail
+                    IconButton(
+                        onClick = {
+                            viewModel.removeSlide(index)
+                            if (currentSlideIndex >= generatedSlides.size - 1 && currentSlideIndex > 0) {
+                                currentSlideIndex--
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remove slide ${index + 1}",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
         }
@@ -250,8 +300,8 @@ private fun buildExportFilename(artist: String, title: String, ccli: String): St
  */
 private fun sanitize(input: String): String {
     return input.trim()
-        // Remove characters that are illegal in filenames on any major OS
-        .replace(Regex("""[\\/:*?"<>|]"""), "")
+        // Remove characters that are problematic in filenames on any OS
+        .replace(Regex("""[\\/:*?"<>|\[\](){}#&!@%^~`]"""), "")
         // Collapse any run of whitespace or dashes into a single hyphen
         .replace(Regex("""[\s-]+"""), "-")
         .trim('-')

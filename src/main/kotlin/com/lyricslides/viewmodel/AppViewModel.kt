@@ -11,6 +11,7 @@ import com.lyricslides.service.CcliEntry
 import com.lyricslides.service.CcliLookupService
 import com.lyricslides.service.CcliSearchResult
 import com.lyricslides.service.LyricsService
+import com.lyricslides.service.OdpExporter
 import com.lyricslides.service.OtpImporter
 import com.lyricslides.service.PptxExporter
 import com.lyricslides.service.SlideGenerator
@@ -33,6 +34,7 @@ class AppViewModel {
     private val ccliLookupService = CcliLookupService()
     private val slideGenerator = SlideGenerator()
     private val pptxExporter = PptxExporter()
+    private val odpExporter = OdpExporter()
     private val backgroundProvider = BackgroundProvider()
     private val backgroundStore = BackgroundStore()
     private val ccliDatabase = CcliDatabase()
@@ -487,6 +489,17 @@ class AppViewModel {
     }
 
     /**
+     * Remove a slide by index from the generated slides.
+     */
+    fun removeSlide(index: Int) {
+        val current = _generatedSlides.value.toMutableList()
+        if (index in current.indices) {
+            current.removeAt(index)
+            _generatedSlides.value = current
+        }
+    }
+
+    /**
      * Export slides to PPTX format.
      */
     fun exportToPptx(outputPath: String) {
@@ -495,8 +508,29 @@ class AppViewModel {
                 val outputFile = File(outputPath)
                 pptxExporter.exportToPptx(_generatedSlides.value, outputFile)
                 _exportPath.value = outputPath
+                _searchError.value = null
             } catch (e: Exception) {
-                _searchError.value = "Export failed: ${e.message}"
+                e.printStackTrace()
+                _exportPath.value = null
+                _searchError.value = "Export failed: ${e.javaClass.simpleName}: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Export slides to ODP (LibreOffice/OpenOffice) format.
+     */
+    fun exportToOdp(outputPath: String) {
+        scope.launch {
+            try {
+                val outputFile = File(outputPath)
+                odpExporter.exportToOdp(_generatedSlides.value, outputFile)
+                _exportPath.value = outputPath
+                _searchError.value = null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _exportPath.value = null
+                _searchError.value = "Export failed: ${e.javaClass.simpleName}: ${e.message}"
             }
         }
     }
