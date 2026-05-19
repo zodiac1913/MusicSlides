@@ -36,7 +36,7 @@ class SlideGenerator {
      * If a group exceeds MAX_LINES_PER_SLIDE, it's split into multiple slides
      * with balanced line counts (equal, or off by one line).
      */
-    fun parseLyricsIntoSlides(lyrics: String): List<List<String>> {
+    fun parseLyricsIntoSlides(lyrics: String, maxLines: Int = MAX_LINES_PER_SLIDE): List<List<String>> {
         val rawSlides = mutableListOf<List<String>>()
         val currentSlide = mutableListOf<String>()
 
@@ -56,13 +56,13 @@ class SlideGenerator {
             rawSlides.add(currentSlide.toList())
         }
 
-        // Second pass: split any slide with more than MAX_LINES_PER_SLIDE
+        // Second pass: split any slide with more than maxLines
         val finalSlides = mutableListOf<List<String>>()
         for (slide in rawSlides) {
-            if (slide.size <= MAX_LINES_PER_SLIDE) {
+            if (slide.size <= maxLines) {
                 finalSlides.add(slide)
             } else {
-                finalSlides.addAll(splitLongSlide(slide))
+                finalSlides.addAll(splitLongSlide(slide, maxLines))
             }
         }
 
@@ -125,10 +125,9 @@ class SlideGenerator {
      *   16 lines → 2 slides of 8,8
      *   10 lines → 2 slides of 5,5
      */
-    private fun splitLongSlide(lines: List<String>): List<List<String>> {
+    private fun splitLongSlide(lines: List<String>, maxLines: Int = MAX_LINES_PER_SLIDE): List<List<String>> {
         val total = lines.size
-        // Minimum number of chunks needed so each fits within the max
-        val numChunks = (total + MAX_LINES_PER_SLIDE - 1) / MAX_LINES_PER_SLIDE
+        val numChunks = (total + maxLines - 1) / maxLines
 
         // Balanced split: base size, with some chunks getting one extra line
         val baseSize = total / numChunks
@@ -147,11 +146,14 @@ class SlideGenerator {
     }
 
     /**
-     * Calculate the maximum font size that fits all lines within the slide area.
+     * Calculate the maximum font size that fits all lines within the given area.
      */
-    fun calculateOptimalFontSize(lines: List<String>, graphics: Graphics2D): Float {
-        val availableWidth = SLIDE_WIDTH - (PADDING * 2)
-        val availableHeight = SLIDE_HEIGHT - (PADDING * 2)
+    fun calculateOptimalFontSize(
+        lines: List<String>,
+        graphics: Graphics2D,
+        availableWidth: Int = SLIDE_WIDTH - (PADDING * 2),
+        availableHeight: Int = SLIDE_HEIGHT - (PADDING * 2)
+    ): Float {
 
         var fontSize = MAX_FONT_SIZE
 
@@ -286,7 +288,11 @@ class SlideGenerator {
         lines: List<String>,
         backgroundImage: BufferedImage?,
         slideNumber: Int,
-        ccliLine: String = ""
+        ccliLine: String = "",
+        horizontalPercent: Int = 80,
+        verticalPercent: Int = 85,
+        allowLineBreaking: Boolean = false,
+        scrimPercent: Int = 90
     ): BufferedImage {
         val image = BufferedImage(SLIDE_WIDTH, SLIDE_HEIGHT, BufferedImage.TYPE_INT_ARGB)
         val g2d = image.createGraphics()
@@ -310,16 +316,20 @@ class SlideGenerator {
         }
 
         // Draw semi-transparent scrim if the background is too varied for clean text
-        if (needsScrim) {
-            drawTextScrim(g2d)
+        if (needsScrim && scrimPercent > 0) {
+            drawTextScrim(g2d, scrimPercent)
         }
 
         val textColor = chooseAccessibleTextColor(
-            if (needsScrim) Color(0, 0, 0, 180) else bgColor
+            if (needsScrim && scrimPercent > 0) Color(0, 0, 0, 180) else bgColor
         )
 
-        // Calculate optimal font size
-        val fontSize = calculateOptimalFontSize(lines, g2d)
+        // Calculate available area based on percentage settings
+        val availableWidth = (SLIDE_WIDTH * horizontalPercent / 100)
+        val availableHeight = (SLIDE_HEIGHT * verticalPercent / 100)
+
+        // Calculate optimal font size using the configured area
+        val fontSize = calculateOptimalFontSize(lines, g2d, availableWidth, availableHeight)
         val font = Font("SansSerif", Font.BOLD, fontSize.toInt())
         g2d.font = font
         g2d.color = textColor
@@ -357,7 +367,8 @@ class SlideGenerator {
      */
     fun renderTitleSlide(
         songInfo: SongInfo,
-        backgroundImage: BufferedImage?
+        backgroundImage: BufferedImage?,
+        scrimPercent: Int = 90
     ): BufferedImage {
         val image = BufferedImage(SLIDE_WIDTH, SLIDE_HEIGHT, BufferedImage.TYPE_INT_ARGB)
         val g2d = image.createGraphics()
@@ -368,9 +379,24 @@ class SlideGenerator {
         // Draw background
         drawBackground(g2d, backgroundImage)
 
-        // Determine accessible text color
-        val bgColor = if (backgroundImage != null) sampleBackgroundColor(image) else Color(30, 30, 65)
-        val textColor = chooseAccessibleTextColor(bgColor)
+        // Check variance and add scrim if needed
+        val bgColor: Color
+        val needsScrim: Boolean
+        if (backgroundImage != null) {
+            bgColor = sampleBackgroundColor(image)
+            needsScrim = backgroundHasHighVariance(image)
+        } else {
+            bgColor = Color(30, 30, 65)
+            needsScrim = false
+        }
+
+        if (needsScrim && scrimPercent > 0) {
+            drawTextScrim(g2d, scrimPercent)
+        }
+
+        val textColor = chooseAccessibleTextColor(
+            if (needsScrim && scrimPercent > 0) Color(0, 0, 0, 180) else bgColor
+        )
 
         // Draw title (large, centered)
         val titleFont = Font("SansSerif", Font.BOLD, TITLE_FONT_SIZE.toInt())
@@ -417,7 +443,8 @@ class SlideGenerator {
      */
     fun renderClosingSlide(
         songInfo: SongInfo,
-        backgroundImage: BufferedImage?
+        backgroundImage: BufferedImage?,
+        scrimPercent: Int = 90
     ): BufferedImage {
         val image = BufferedImage(SLIDE_WIDTH, SLIDE_HEIGHT, BufferedImage.TYPE_INT_ARGB)
         val g2d = image.createGraphics()
@@ -428,9 +455,24 @@ class SlideGenerator {
         // Draw background
         drawBackground(g2d, backgroundImage)
 
-        // Determine accessible text color
-        val bgColor = if (backgroundImage != null) sampleBackgroundColor(image) else Color(30, 30, 65)
-        val textColor = chooseAccessibleTextColor(bgColor)
+        // Check variance and add scrim if needed
+        val bgColor: Color
+        val needsScrim: Boolean
+        if (backgroundImage != null) {
+            bgColor = sampleBackgroundColor(image)
+            needsScrim = backgroundHasHighVariance(image)
+        } else {
+            bgColor = Color(30, 30, 65)
+            needsScrim = false
+        }
+
+        if (needsScrim && scrimPercent > 0) {
+            drawTextScrim(g2d, scrimPercent)
+        }
+
+        val textColor = chooseAccessibleTextColor(
+            if (needsScrim && scrimPercent > 0) Color(0, 0, 0, 180) else bgColor
+        )
 
         // Build the closing slide content
         val legalLines = songInfo.legalBlock
@@ -519,17 +561,19 @@ class SlideGenerator {
 
     /**
      * Draw a semi-transparent dark scrim over the text area to ensure readability.
-     * The scrim is a rounded rectangle with soft edges covering the center of the slide.
+     * Coverage is a percentage of the slide (100 = full, 0 = none).
      */
-    private fun drawTextScrim(g2d: Graphics2D) {
-        val scrimPadding = PADDING / 2
-        val scrimX = scrimPadding
-        val scrimY = scrimPadding
-        val scrimW = SLIDE_WIDTH - (scrimPadding * 2)
-        val scrimH = SLIDE_HEIGHT - (scrimPadding * 2)
+    private fun drawTextScrim(g2d: Graphics2D, coveragePercent: Int = 90) {
+        if (coveragePercent <= 0) return
+
+        val scrimW = SLIDE_WIDTH * coveragePercent / 100
+        val scrimH = SLIDE_HEIGHT * coveragePercent / 100
+        val scrimX = (SLIDE_WIDTH - scrimW) / 2
+        val scrimY = (SLIDE_HEIGHT - scrimH) / 2
 
         g2d.color = Color(0, 0, 0, 160) // ~63% opacity black
-        g2d.fillRoundRect(scrimX, scrimY, scrimW, scrimH, 40, 40)
+        val cornerRadius = if (coveragePercent >= 100) 0 else 40
+        g2d.fillRoundRect(scrimX, scrimY, scrimW, scrimH, cornerRadius, cornerRadius)
     }
 
     /**
@@ -564,22 +608,32 @@ class SlideGenerator {
     fun generateFullPresentation(
         lyrics: String,
         songInfo: SongInfo,
-        backgroundImage: BufferedImage?
+        backgroundImage: BufferedImage?,
+        maxLines: Int = MAX_LINES_PER_SLIDE,
+        horizontalPercent: Int = 80,
+        verticalPercent: Int = 85,
+        allowLineBreaking: Boolean = false,
+        scrimPercent: Int = 90
     ): List<BufferedImage> {
         val slides = mutableListOf<BufferedImage>()
         val ccliLine = songInfo.ccliLine  // "CCLI Song # 4447960" or ""
 
         // 1. Title slide
-        slides.add(renderTitleSlide(songInfo, backgroundImage))
+        slides.add(renderTitleSlide(songInfo, backgroundImage, scrimPercent))
 
         // 2. Lyrics slides (each includes CCLI in the corner)
-        val slideGroups = parseLyricsIntoSlides(lyrics)
+        val slideGroups = parseLyricsIntoSlides(lyrics, maxLines)
         for ((index, lines) in slideGroups.withIndex()) {
-            slides.add(renderSlide(lines, backgroundImage, index + 1, ccliLine))
+            slides.add(renderSlide(lines, backgroundImage, index + 1, ccliLine,
+                horizontalPercent = horizontalPercent,
+                verticalPercent = verticalPercent,
+                allowLineBreaking = allowLineBreaking,
+                scrimPercent = scrimPercent
+            ))
         }
 
         // 3. Closing slide with CCLI/legal info
-        slides.add(renderClosingSlide(songInfo, backgroundImage))
+        slides.add(renderClosingSlide(songInfo, backgroundImage, scrimPercent))
 
         return slides
     }

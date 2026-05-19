@@ -4,6 +4,7 @@ import com.lyricslides.model.AppStep
 import com.lyricslides.model.LyricsResult
 import com.lyricslides.model.SlideBackground
 import com.lyricslides.model.SongInfo
+import com.lyricslides.service.AppSettings
 import com.lyricslides.service.BackgroundProvider
 import com.lyricslides.service.BackgroundStore
 import com.lyricslides.service.CcliDatabase
@@ -14,7 +15,9 @@ import com.lyricslides.service.LyricsService
 import com.lyricslides.service.OdpExporter
 import com.lyricslides.service.OtpImporter
 import com.lyricslides.service.PptxExporter
+import com.lyricslides.service.SlideContent
 import com.lyricslides.service.SlideGenerator
+import com.lyricslides.service.SettingsManager
 import com.lyricslides.service.SongSuggestion
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +41,11 @@ class AppViewModel {
     private val backgroundProvider = BackgroundProvider()
     private val backgroundStore = BackgroundStore()
     private val ccliDatabase = CcliDatabase()
+    private val settingsManager = SettingsManager()
+
+    // Settings state
+    private val _settings = MutableStateFlow(settingsManager.settings)
+    val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
     // Current workflow step
     private val _currentStep = MutableStateFlow(AppStep.SEARCH)
@@ -108,6 +116,9 @@ class AppViewModel {
     private val _generatedSlides = MutableStateFlow<List<BufferedImage>>(emptyList())
     val generatedSlides: StateFlow<List<BufferedImage>> = _generatedSlides.asStateFlow()
 
+    // Parallel list of slide content for editable PPTX export (stays in sync with _generatedSlides)
+    private val _slideContents = MutableStateFlow<List<SlideContent>>(emptyList())
+
     private val _generationProgress = MutableStateFlow(0f)
     val generationProgress: StateFlow<Float> = _generationProgress.asStateFlow()
 
@@ -132,6 +143,11 @@ class AppViewModel {
 
     fun updateCopyright(value: String) {
         _copyright.value = value
+    }
+
+    fun updateSettings(newSettings: AppSettings) {
+        _settings.value = newSettings
+        settingsManager.save(newSettings)
     }
 
     /**
@@ -472,11 +488,63 @@ class AppViewModel {
             val backgroundImage: BufferedImage? = backgroundProvider.loadBackground(_selectedBackground.value)
 
             val songInfo = getSongInfo()
+            val currentSettings = _settings.value
             val slides = slideGenerator.generateFullPresentation(
                 lyrics = _lyrics.value,
                 songInfo = songInfo,
-                backgroundImage = backgroundImage
+                backgroundImage = backgroundImage,
+                maxLines = currentSettings.maxLinesPerSlide,
+                horizontalPercent = currentSettings.horizontalPercent,
+                verticalPercent = currentSettings.verticalPercent,
+                allowLineBreaking = currentSettings.allowLineBreaking,
+                scrimPercent = currentSettings.scrimPercent
             )
+
+            // Build parallel slide content list for editable PPTX export
+            val slideGroups = slideGenerator.parseLyricsIntoSlides(_lyrics.value, currentSettings.maxLinesPerSlide)
+            val contents = mutableListOf<SlideContent>()
+
+            // Title slide content
+            val titleLines = mutableListOf<String>()
+            if (songInfo.title.isNotBlank()) titleLines.add("\"${songInfo.title}\"")
+            if (songInfo.artist.isNotBlank()) titleLines.add(songInfo.artist)
+            contents.add(SlideContent(
+                lines = titleLines,
+                fontSize = 60.0,
+                textColor = java.awt.Color.WHITE,
+                ccliLine = songInfo.ccliLine,
+                isTitle = true,
+                scrimPercent = currentSettings.scrimPercent
+            ))
+
+            // Lyrics slide contents
+            for (lines in slideGroups) {
+                val availableWidth = (SlideGenerator.SLIDE_WIDTH * currentSettings.horizontalPercent / 100)
+                val availableHeight = (SlideGenerator.SLIDE_HEIGHT * currentSettings.verticalPercent / 100)
+                val tempImg = java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+                val g2d = tempImg.createGraphics()
+                val fontSize = slideGenerator.calculateOptimalFontSize(lines, g2d, availableWidth, availableHeight)
+                g2d.dispose()
+
+                contents.add(SlideContent(
+                    lines = lines,
+                    fontSize = fontSize.toDouble(),
+                    textColor = java.awt.Color.WHITE,
+                    ccliLine = songInfo.ccliLine,
+                    scrimPercent = currentSettings.scrimPercent
+                ))
+            }
+
+            // Closing slide content
+            contents.add(SlideContent(
+                lines = songInfo.legalBlock,
+                fontSize = 36.0,
+                textColor = java.awt.Color.WHITE,
+                ccliLine = "",
+                scrimPercent = currentSettings.scrimPercent
+            ))
+
+            _slideContents.value = contents
 
             // Remember this song's CCLI info for next time
             saveToCcliDb()
@@ -493,20 +561,35 @@ class AppViewModel {
      */
     fun removeSlide(index: Int) {
         val current = _generatedSlides.value.toMutableList()
+        val contents = _slideContents.value.toMutableList()
         if (index in current.indices) {
             current.removeAt(index)
             _generatedSlides.value = current
         }
+        if (index in contents.indices) {
+            contents.removeAt(index)
+            _slideContents.value = contents
+        }
     }
 
     /**
-     * Export slides to PPTX format.
+     * Export slides to PPTX format with editable text boxes and background image.
+     * Uses the curated _slideContents list (respects deleted slides).
      */
     fun exportToPptx(outputPath: String) {
         scope.launch {
             try {
                 val outputFile = File(outputPath)
-                pptxExporter.exportToPptx(_generatedSlides.value, outputFile)
+                val backgroundImage = backgroundProvider.loadBackground(_selectedBackground.value)
+
+                // Use the stored slide contents (which reflect any deletions from preview)
+                val slideContents = _slideContents.value
+                if (slideContents.isEmpty()) {
+                    _searchError.value = "No slides to export. Generate slides first."
+                    return@launch
+                }
+
+                pptxExporter.exportToPptx(slideContents, backgroundImage, outputFile)
                 _exportPath.value = outputPath
                 _searchError.value = null
             } catch (e: Exception) {
