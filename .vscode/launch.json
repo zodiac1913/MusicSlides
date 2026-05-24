@@ -14,7 +14,7 @@
             "request": "attach",
             "hostName": "localhost",
             "port": 5005,
-            "projectName": "LyricSlides"
+            "projectName": "Lyric Slides"
         }
     ],
     "compounds": []

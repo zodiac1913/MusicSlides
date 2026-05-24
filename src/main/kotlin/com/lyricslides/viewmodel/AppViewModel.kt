@@ -436,6 +436,26 @@ class AppViewModel {
     }
 
     /**
+     * Rename a custom background and persist the change.
+     */
+    fun renameBackground(background: SlideBackground, newName: String) {
+        if (background.isBuiltIn) return
+        val updated = _availableBackgrounds.value.map {
+            if (it == background) it.copy(name = newName) else it
+        }
+        _availableBackgrounds.value = updated
+        // Update selection reference if necessary
+        if (_selectedBackground.value == background) {
+            // find the updated instance with same path
+            _selectedBackground.value = updated.firstOrNull { it.path == background.path }
+        }
+        // Persist
+        backgroundStore.saveCustomBackgrounds(
+            _availableBackgrounds.value.filter { !it.isBuiltIn }
+        )
+    }
+
+    /**
      * Import a background from a LibreOffice Impress template (.otp) file.
      * Extracts the background image and adds it to the custom backgrounds.
      */
@@ -443,7 +463,6 @@ class AppViewModel {
         val otpImporter = OtpImporter()
         val extractedPath = otpImporter.extractBackground(otpFilePath)
         if (extractedPath != null) {
-            val file = File(extractedPath)
             val templateName = File(otpFilePath).nameWithoutExtension
             val bg = SlideBackground(
                 name = templateName,

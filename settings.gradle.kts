@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LyricSlides"
+rootProject.name = "Lyric Slides"

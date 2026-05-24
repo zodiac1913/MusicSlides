@@ -195,6 +195,10 @@ fun BackgroundScreen(viewModel: AppViewModel) {
                     onDelete = if (!background.isBuiltIn) {
                         { viewModel.removeBackground(background) }
                     } else null
+                    ,
+                    onRename = if (!background.isBuiltIn) {
+                        { newName -> viewModel.renameBackground(background, newName) }
+                    } else null
                 )
             }
         }
@@ -215,11 +219,14 @@ fun BackgroundCard(
     isSelected: Boolean,
     backgroundProvider: BackgroundProvider,
     onClick: () -> Unit,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onRename: ((String) -> Unit)? = null
 ) {
     // Load thumbnail asynchronously so the UI stays responsive
     var thumbnail by remember(background.path) { mutableStateOf<ImageBitmap?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var renameText by remember { mutableStateOf(background.name) }
 
     LaunchedEffect(background.path) {
         val thumb = withContext(Dispatchers.IO) {
@@ -325,20 +332,67 @@ fun BackgroundCard(
                     tint = MaterialTheme.colorScheme.primary
                 )
             } else if (onDelete != null) {
-                IconButton(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Remove ${background.name}",
-                        tint = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.size(20.dp)
-                    )
+                Row(modifier = Modifier.align(Alignment.TopEnd)) {
+                    IconButton(
+                        onClick = { showRenameDialog = true },
+                        modifier = Modifier
+                            .padding(2.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Rename ${background.name}",
+                            tint = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier
+                            .padding(2.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remove ${background.name}",
+                            tint = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
+    }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename Background") },
+            text = {
+                Column {
+                    Text("Enter a new display name for this background:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = renameText,
+                        onValueChange = { renameText = it },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRenameDialog = false
+                    if (renameText.isNotBlank() && renameText != background.name) {
+                        onRename?.invoke(renameText.trim())
+                    }
+                }) {
+                    Text("Rename")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

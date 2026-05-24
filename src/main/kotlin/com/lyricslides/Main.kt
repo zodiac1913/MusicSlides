@@ -16,7 +16,7 @@ import com.lyricslides.ui.theme.LyricSlidesTheme
 fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
-        title = "LyricSlides",
+        title = "Lyric Slides",
         state = rememberWindowState(width = 1200.dp, height = 800.dp)
     ) {
         LyricSlidesTheme {

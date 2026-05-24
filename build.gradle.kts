@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.lyricslides"
-version = "1.0.0"
+version = "2026.05.10"
 
 dependencies {
     // Compose Desktop

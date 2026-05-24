@@ -21,7 +21,7 @@ fun LyricSlidesApp() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("LyricSlides") },
+                title = { Text("Lyric Slides") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
