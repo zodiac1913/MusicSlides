@@ -17,7 +17,6 @@ import com.lyricslides.viewmodel.AppViewModel
 fun LyricSlidesApp() {
     val viewModel = remember { AppViewModel() }
     val currentStep by viewModel.currentStep.collectAsState()
-    var showSettings by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -25,18 +24,11 @@ fun LyricSlidesApp() {
                 title = { Text("LyricSlides") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
-                ),
-                actions = {
-                    IconButton(onClick = { showSettings = !showSettings }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                }
+                )
             )
         },
         bottomBar = {
-            if (!showSettings) {
-                StepIndicator(currentStep, viewModel)
-            }
+            StepIndicator(currentStep, viewModel)
         }
     ) { padding ->
         Box(
@@ -44,16 +36,12 @@ fun LyricSlidesApp() {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (showSettings) {
-                SettingsScreen(viewModel, onBack = { showSettings = false })
-            } else {
-                when (currentStep) {
-                    AppStep.SEARCH -> SearchScreen(viewModel)
-                    AppStep.EDIT -> EditScreen(viewModel)
-                    AppStep.BACKGROUND -> BackgroundScreen(viewModel)
-                    AppStep.GENERATE -> GenerateScreen(viewModel)
-                    AppStep.PREVIEW -> PreviewScreen(viewModel)
-                }
+            when (currentStep) {
+                AppStep.SEARCH -> SearchScreen(viewModel)
+                AppStep.EDIT -> EditScreen(viewModel)
+                AppStep.BACKGROUND -> BackgroundScreen(viewModel)
+                AppStep.GENERATE -> GenerateScreen(viewModel)
+                AppStep.PREVIEW -> PreviewScreen(viewModel)
             }
         }
     }
@@ -64,7 +52,7 @@ fun StepIndicator(currentStep: AppStep, viewModel: AppViewModel) {
     val steps = AppStep.entries
 
     NavigationBar {
-        steps.forEachIndexed { _, step ->
+        steps.forEachIndexed { index, step ->
             NavigationBarItem(
                 icon = {
                     Icon(

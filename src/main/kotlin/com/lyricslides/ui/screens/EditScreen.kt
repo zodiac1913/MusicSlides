@@ -32,12 +32,8 @@ fun EditScreen(viewModel: AppViewModel) {
         }
     }
 
-    val settings by viewModel.settings.collectAsState()
-
     val slideGenerator = remember { SlideGenerator() }
-    val slideGroups = remember(lyrics, settings.maxLinesPerSlide) {
-        slideGenerator.parseLyricsIntoSlides(lyrics, settings.maxLinesPerSlide)
-    }
+    val slideGroups = remember(lyrics) { slideGenerator.parseLyricsIntoSlides(lyrics) }
 
     Column(
         modifier = Modifier
