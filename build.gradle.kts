@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.lyricslides"
-version = "2026.05.10"
+version = "2026.05.30"
 
 dependencies {
     // Compose Desktop
@@ -42,7 +42,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "LyricSlides"
-            packageVersion = "1.0.0"
+            packageVersion = project.version.toString()
         }
     }
 }
