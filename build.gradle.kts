@@ -40,9 +40,25 @@ compose.desktop {
         mainClass = "com.lyricslides.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "LyricSlides"
+
+            // Linux/Mac can use the date version directly
             packageVersion = project.version.toString()
+
+            // Windows requires MAJOR.MINOR.BUILD (max 255.255.65535)
+            // Convert YYYY.MM.DD → YY.MM.DD
+            val parts = project.version.toString().split(".")
+            val winVersion = if (parts.size >= 3) {
+                val yy = (parts[0].toIntOrNull() ?: 2026) % 100
+                val mm = parts[1].toIntOrNull() ?: 1
+                val dd = parts.getOrNull(2)?.toIntOrNull() ?: 0
+                "$yy.$mm.$dd"
+            } else "1.0.0"
+
+            windows {
+                packageVersion = winVersion
+            }
         }
     }
 }
