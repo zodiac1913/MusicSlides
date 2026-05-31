@@ -31,35 +31,55 @@ class BackgroundProvider {
     fun getBuiltInBackgrounds(): List<SlideBackground> {
         val backgrounds = mutableListOf<SlideBackground>()
 
-        // Find the backgrounds directory
-        val possibleDirs = listOfNotNull(
+        // Find the backgrounds directory — check multiple possible locations
+        val possibleDirs = mutableListOf(
+            // Dev mode (running from source)
             File("src/main/resources/backgrounds"),
-            System.getProperty("compose.application.resources.dir")?.let { File(it, "backgrounds") }
+            // Packaged app — resources dir set by Compose
+            File(System.getProperty("compose.application.resources.dir", "."), "backgrounds"),
+            // Packaged app — relative to working directory
+            File("resources/backgrounds"),
+            // Packaged app — relative to app location
+            File(System.getProperty("user.dir"), "resources/backgrounds"),
+            File(System.getProperty("user.dir"), "app/resources/backgrounds"),
         )
 
-        val dir = possibleDirs.firstOrNull { it.isDirectory } ?: return backgrounds
-
-        dir.listFiles()
-            ?.filter { it.isFile && isImageFile(it.name) }
-            ?.sortedBy { it.name.lowercase() }
-            ?.forEach { file ->
-                val name = file.nameWithoutExtension
-                    .replace("-", " ")
-                    .replace("_", " ")
-                    .split(" ")
-                    .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
-
-                val category = categorize(file.nameWithoutExtension)
-
-                backgrounds.add(
-                    SlideBackground(
-                        name = name,
-                        path = file.absolutePath,
-                        isBuiltIn = true,
-                        category = category
-                    )
-                )
+        // Also check relative to the JAR/class location
+        try {
+            val codeSource = javaClass.protectionDomain?.codeSource?.location
+            if (codeSource != null) {
+                val jarDir = File(codeSource.toURI()).parentFile
+                possibleDirs.add(File(jarDir, "resources/backgrounds"))
+                possibleDirs.add(File(jarDir, "backgrounds"))
+                possibleDirs.add(File(jarDir.parentFile, "resources/backgrounds"))
             }
+        } catch (_: Exception) {}
+
+        val dir = possibleDirs.firstOrNull { it.isDirectory }
+
+        if (dir != null) {
+            dir.listFiles()
+                ?.filter { it.isFile && isImageFile(it.name) }
+                ?.sortedBy { it.name.lowercase() }
+                ?.forEach { file ->
+                    val name = file.nameWithoutExtension
+                        .replace("-", " ")
+                        .replace("_", " ")
+                        .split(" ")
+                        .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+
+                    val category = categorize(file.nameWithoutExtension)
+
+                    backgrounds.add(
+                        SlideBackground(
+                            name = name,
+                            path = file.absolutePath,
+                            isBuiltIn = true,
+                            category = category
+                        )
+                    )
+                }
+        }
 
         return backgrounds
     }

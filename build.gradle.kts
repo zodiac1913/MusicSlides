@@ -59,6 +59,9 @@ compose.desktop {
             windows {
                 packageVersion = winVersion
             }
+
+            // Bundle backgrounds as app resources so they're available in packaged builds
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("src/main/resources"))
         }
     }
 }
