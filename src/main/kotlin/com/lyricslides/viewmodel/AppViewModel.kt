@@ -4,17 +4,22 @@ import com.lyricslides.model.AppStep
 import com.lyricslides.model.LyricsResult
 import com.lyricslides.model.SlideBackground
 import com.lyricslides.model.SongInfo
+import com.lyricslides.service.AppSettings
 import com.lyricslides.service.BackgroundProvider
 import com.lyricslides.service.BackgroundStore
 import com.lyricslides.service.CcliDatabase
 import com.lyricslides.service.CcliEntry
 import com.lyricslides.service.CcliLookupService
+import com.lyricslides.service.CredentialStore
+import com.lyricslides.service.StoredCredentials
 import com.lyricslides.service.CcliSearchResult
 import com.lyricslides.service.LyricsService
 import com.lyricslides.service.OdpExporter
 import com.lyricslides.service.OtpImporter
 import com.lyricslides.service.PptxExporter
 import com.lyricslides.service.SlideGenerator
+import com.lyricslides.service.SettingsManager
+import com.lyricslides.service.SongSelectService
 import com.lyricslides.service.SongSuggestion
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,12 +37,23 @@ class AppViewModel {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val lyricsService = LyricsService()
     private val ccliLookupService = CcliLookupService()
+    private val songSelectService = SongSelectService()
     private val slideGenerator = SlideGenerator()
     private val pptxExporter = PptxExporter()
     private val odpExporter = OdpExporter()
     private val backgroundProvider = BackgroundProvider()
     private val backgroundStore = BackgroundStore()
     private val ccliDatabase = CcliDatabase()
+    private val credentialStore = CredentialStore()
+    private val settingsManager = SettingsManager()
+
+    // Settings state
+    private val _settings = MutableStateFlow(settingsManager.settings)
+    val settings: StateFlow<AppSettings> = _settings.asStateFlow()
+
+    // Credentials state
+    private val _credentials = MutableStateFlow(credentialStore.credentials)
+    val credentials: StateFlow<StoredCredentials> = _credentials.asStateFlow()
 
     // Current workflow step
     private val _currentStep = MutableStateFlow(AppStep.SEARCH)
@@ -132,6 +148,27 @@ class AppViewModel {
 
     fun updateCopyright(value: String) {
         _copyright.value = value
+    }
+
+    fun updateSettings(newSettings: AppSettings) {
+        _settings.value = newSettings
+        settingsManager.save(newSettings)
+    }
+
+    fun saveCcliCredentials(creds: StoredCredentials) {
+        credentialStore.save(creds)
+        _credentials.value = creds
+        // Auto-login to SongSelect when credentials are saved
+        if (creds.ccliUsername.isNotBlank() && creds.ccliPassword.isNotBlank()) {
+            scope.launch {
+                songSelectService.login(creds.ccliUsername, creds.ccliPassword)
+            }
+        }
+    }
+
+    fun clearCcliCredentials() {
+        credentialStore.clearCredentials()
+        _credentials.value = StoredCredentials()
     }
 
     /**

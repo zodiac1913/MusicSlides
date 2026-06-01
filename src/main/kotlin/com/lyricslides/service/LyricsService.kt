@@ -87,7 +87,15 @@ class LyricsService {
 
         val allSuggestions = mutableListOf<SongSuggestion>()
 
-        // 1. Genius search (modern, gospel, worship, mainstream)
+        // 1. Hymnary search first (traditional hymns, gospel, spirituals)
+        try {
+            val hymnSuggestions = searchHymnarySuggestions(query)
+            allSuggestions.addAll(hymnSuggestions)
+        } catch (_: Exception) {
+            // Hymnary failed — continue with Genius
+        }
+
+        // 2. Genius search (modern, gospel, worship, mainstream)
         try {
             val encoded = URLEncoder.encode(query.trim(), "UTF-8")
             val url = "https://genius.com/api/search/multi?q=$encoded"
@@ -104,18 +112,64 @@ class LyricsService {
                 allSuggestions.addAll(parseGeniusSuggestions(searchJson))
             }
         } catch (_: Exception) {
-            // Genius failed — continue with Hymnary
+            // Genius failed — return what we have from Hymnary
         }
 
-        // 2. Hymnary search (traditional hymns, spirituals, gospel standards)
+        // 3. Lyrics.com search (broad catalog including gospel)
         try {
-            val hymnSuggestions = searchHymnarySuggestions(query)
-            allSuggestions.addAll(hymnSuggestions)
-        } catch (_: Exception) {
-            // Hymnary failed — return what we have from Genius
-        }
+            val lyricsComSuggestions = searchLyricsComSuggestions(query)
+            // Only add ones we don't already have
+            for (suggestion in lyricsComSuggestions) {
+                if (allSuggestions.none { it.title.equals(suggestion.title, ignoreCase = true) &&
+                        it.artist.equals(suggestion.artist, ignoreCase = true) }) {
+                    allSuggestions.add(suggestion)
+                }
+            }
+        } catch (_: Exception) {}
 
         return Result.success(allSuggestions.take(15))
+    }
+
+    /**
+     * Search Lyrics.com for song suggestions.
+     */
+    private suspend fun searchLyricsComSuggestions(query: String): List<SongSuggestion> {
+        val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+        val searchUrl = "https://www.lyrics.com/lyrics/$encoded"
+
+        val response: HttpResponse = client.get(searchUrl) {
+            header(HttpHeaders.UserAgent, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
+            header(HttpHeaders.Accept, "text/html")
+        }
+
+        if (response.status != HttpStatusCode.OK) return emptyList()
+
+        val html = response.bodyAsText()
+        val suggestions = mutableListOf<SongSuggestion>()
+
+        // Pattern: href="/lyric/12345/Artist+Name/Song+Title"
+        val pattern = Regex("""href="/lyric/\d+/([^/]+)/([^"]+)""")
+        val seen = mutableSetOf<String>()
+
+        for (match in pattern.findAll(html)) {
+            val artist = match.groupValues[1].replace("+", " ")
+            val title = match.groupValues[2].replace("+", " ")
+            val key = "${title.lowercase()}|${artist.lowercase()}"
+
+            if (key in seen) continue
+            seen.add(key)
+
+            suggestions.add(SongSuggestion(
+                title = title,
+                artist = artist,
+                source = "Lyrics.com",
+                url = null // Will fall back to regular search
+            ))
+
+            if (suggestions.size >= 5) break
+        }
+
+        return suggestions
     }
 
     /**
