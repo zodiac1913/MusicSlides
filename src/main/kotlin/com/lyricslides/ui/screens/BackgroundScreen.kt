@@ -77,7 +77,7 @@ fun BackgroundScreen(viewModel: AppViewModel) {
                     Text("Back")
                 }
                 Button(
-                    onClick = { viewModel.nextStep() }
+                    onClick = { viewModel.generateSlides() }
                 ) {
                     Text("Generate Slides")
                     Spacer(modifier = Modifier.width(4.dp))

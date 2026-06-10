@@ -61,7 +61,7 @@ fun LyricSlidesApp() {
 
 @Composable
 fun StepIndicator(currentStep: AppStep, viewModel: AppViewModel) {
-    val steps = AppStep.entries
+    val steps = AppStep.entries.filter { it != AppStep.GENERATE }
 
     NavigationBar {
         steps.forEachIndexed { index, step ->

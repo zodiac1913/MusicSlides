@@ -270,10 +270,23 @@ fun SearchScreen(viewModel: AppViewModel) {
                         )
                     }
 
-                    // Manual search button (uses artist + title directly)
+                    // Traditional Hymn filter
+                    var hymnOnly by remember { mutableStateOf(false) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = hymnOnly,
+                            onCheckedChange = { hymnOnly = it }
+                        )
+                        Text("Traditional Hymns only (Hymnary)", style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    // Manual search button
                     Button(
-                        onClick = { viewModel.searchLyrics() },
-                        enabled = artistTfv.text.isNotBlank() && titleTfv.text.isNotBlank() && !isSearching,
+                        onClick = { viewModel.searchLyrics(hymnOnly = hymnOnly) },
+                        enabled = titleTfv.text.isNotBlank() && !isSearching,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (isSearching) {
@@ -286,7 +299,7 @@ fun SearchScreen(viewModel: AppViewModel) {
                         } else {
                             Icon(Icons.Default.Search, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Search by Artist + Title")
+                            Text(if (hymnOnly) "Search Hymnary" else "Search All Sources")
                         }
                     }
 

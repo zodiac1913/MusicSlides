@@ -397,13 +397,18 @@ class AppViewModel {
 
     /**
      * Search for lyrics online.
+     * If hymnOnly is true, only searches Hymnary.org for traditional hymns.
      */
-    fun searchLyrics() {
+    fun searchLyrics(hymnOnly: Boolean = false) {
         scope.launch {
             _isSearching.value = true
             _searchError.value = null
 
-            val result = lyricsService.searchLyrics(_artist.value, _title.value)
+            val result = if (hymnOnly) {
+                lyricsService.fetchFromHymnary(_artist.value, _title.value)
+            } else {
+                lyricsService.searchLyrics(_artist.value, _title.value)
+            }
 
             result.onSuccess { lyricsResult ->
                 _lyrics.value = lyricsResult.lyrics
