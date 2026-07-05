@@ -3,6 +3,7 @@ package com.lyricslides.viewmodel
 import com.lyricslides.model.AppStep
 import com.lyricslides.model.LyricsResult
 import com.lyricslides.model.SlideBackground
+import com.lyricslides.model.SlideContent
 import com.lyricslides.model.SongInfo
 import com.lyricslides.service.AppSettings
 import com.lyricslides.service.BackgroundProvider
@@ -123,6 +124,9 @@ class AppViewModel {
 
     private val _generatedSlides = MutableStateFlow<List<BufferedImage>>(emptyList())
     val generatedSlides: StateFlow<List<BufferedImage>> = _generatedSlides.asStateFlow()
+
+    private val _generatedSlideContents = MutableStateFlow<List<SlideContent>>(emptyList())
+    val generatedSlideContents: StateFlow<List<SlideContent>> = _generatedSlideContents.asStateFlow()
 
     private val _generationProgress = MutableStateFlow(0f)
     val generationProgress: StateFlow<Float> = _generationProgress.asStateFlow()
@@ -533,6 +537,10 @@ class AppViewModel {
             val backgroundImage: BufferedImage? = backgroundProvider.loadBackground(_selectedBackground.value)
 
             val songInfo = getSongInfo()
+            val slideContents = slideGenerator.generateSlideContents(
+                lyrics = _lyrics.value,
+                songInfo = songInfo
+            )
             val slides = slideGenerator.generateFullPresentation(
                 lyrics = _lyrics.value,
                 songInfo = songInfo,
@@ -543,6 +551,7 @@ class AppViewModel {
             saveToCcliDb()
 
             _generatedSlides.value = slides
+            _generatedSlideContents.value = slideContents
             _generationProgress.value = 1f
             _isGenerating.value = false
             _currentStep.value = AppStep.PREVIEW
@@ -561,13 +570,21 @@ class AppViewModel {
     }
 
     /**
-     * Export slides to PPTX format.
+     * Export slides to PPTX format with editable text boxes.
      */
     fun exportToPptx(outputPath: String) {
         scope.launch {
             try {
                 val outputFile = File(outputPath)
-                pptxExporter.exportToPptx(_generatedSlides.value, outputFile)
+                val contents = _generatedSlideContents.value
+                if (contents.isEmpty()) {
+                    _searchError.value = "No slides to export. Please generate slides first."
+                    return@launch
+                }
+                println("Exporting ${contents.size} text-based slides to PPTX")
+                val backgroundImage = backgroundProvider.loadBackground(_selectedBackground.value)
+                val scrimPercent = _settings.value.scrimPercent
+                pptxExporter.exportSlidesToPptx(contents, outputFile, backgroundImage, scrimPercent)
                 _exportPath.value = outputPath
                 _searchError.value = null
             } catch (e: Exception) {

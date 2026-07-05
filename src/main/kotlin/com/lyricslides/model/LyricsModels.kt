@@ -23,6 +23,16 @@ data class LyricSlide(
 )
 
 /**
+ * Structured content for a single slide when exporting to editable PowerPoint text.
+ */
+data class SlideContent(
+    val title: String? = null,
+    val subtitle: String? = null,
+    val lines: List<String> = emptyList(),
+    val ccliLine: String = ""
+)
+
+/**
  * Result from a lyrics fetch operation.
  */
 @Serializable

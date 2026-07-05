@@ -73,6 +73,12 @@ esac
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
+# Use a project-local Gradle home by default so wrapper runs in sandboxed/editor environments.
+if [ -z "$GRADLE_USER_HOME" ]; then
+    GRADLE_USER_HOME="$APP_HOME/.gradle-home"
+fi
+export GRADLE_USER_HOME
+
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then

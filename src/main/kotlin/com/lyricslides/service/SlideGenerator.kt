@@ -1,6 +1,7 @@
 package com.lyricslides.service
 
 import com.lyricslides.model.LyricSlide
+import com.lyricslides.model.SlideContent
 import com.lyricslides.model.SongInfo
 import java.awt.*
 import java.awt.image.BufferedImage
@@ -555,6 +556,41 @@ class SlideGenerator {
         // Main text with slight transparency to stay subtle
         g2d.color = Color(textColor.red, textColor.green, textColor.blue, 220)
         g2d.drawString(ccliText, x, y)
+    }
+
+    /**
+     * Build editable slide content for PowerPoint export.
+     */
+    fun generateSlideContents(
+        lyrics: String,
+        songInfo: SongInfo
+    ): List<SlideContent> {
+        val ccliLine = songInfo.ccliLine
+        val slideContents = mutableListOf<SlideContent>()
+
+        slideContents.add(
+            SlideContent(
+                title = songInfo.title.ifBlank { null },
+                subtitle = songInfo.artist.ifBlank { null },
+                ccliLine = ccliLine
+            )
+        )
+
+        val slideGroups = parseLyricsIntoSlides(lyrics)
+        for (lines in slideGroups) {
+            slideContents.add(SlideContent(lines = lines, ccliLine = ccliLine))
+        }
+
+        slideContents.add(
+            SlideContent(
+                title = songInfo.title.ifBlank { null },
+                subtitle = songInfo.artist.ifBlank { null },
+                lines = songInfo.legalBlock,
+                ccliLine = ccliLine
+            )
+        )
+
+        return slideContents
     }
 
     /**

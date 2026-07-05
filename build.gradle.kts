@@ -10,6 +10,9 @@ group = "com.lyricslides"
 version = "2026.05.30"
 
 dependencies {
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+
     // Compose Desktop
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
@@ -33,6 +36,10 @@ dependencies {
 
     // Image processing
     implementation("net.coobird:thumbnailator:0.4.20")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 compose.desktop {
